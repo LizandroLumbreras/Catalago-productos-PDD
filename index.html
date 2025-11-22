@@ -258,7 +258,12 @@ async function agregarLinea() {
 function cerrarDetalle() {
     document.getElementById("detalleProducto").style.display = "none";
 }
-
+    
+// --- HACER FUNCIONES ACCESIBLES EN EL HTML ---
+window.seleccionarProducto = seleccionarProducto;
+window.agregarLinea = agregarLinea;
+window.cerrarDetalle = cerrarDetalle;
+    
 </script>
 
 </body>
