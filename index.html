@@ -11,11 +11,67 @@
         background: #f2f2f2;
         margin: 0;
         padding: 20px;
+        overflow-x: hidden;
     }
+
     h2 {
         text-align: center;
         color: #00416A;
+        margin-bottom: 20px;
     }
+
+    /* CONTENEDOR DEL BUSCADOR */
+    #buscadorBox {
+        position: relative;
+        z-index: 9999;
+        width: 100%;
+        max-width: 600px;
+        margin: auto;
+    }
+
+    #buscar {
+        width: 100%;
+        padding: 12px;
+        border-radius: 6px;
+        border: 1px solid #bbb;
+        font-size: 16px;
+    }
+
+    /* SUGERENCIAS */
+    #sugerencias {
+        position: absolute;
+        top: calc(100% + 5px);
+        left: 0;
+        width: 100%;
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        max-height: 260px;
+        overflow-y: auto;
+        display: none;
+        z-index: 99999;
+        box-shadow: 0px 2px 8px rgba(0,0,0,0.2);
+    }
+
+    #sugerencias div {
+        padding: 10px;
+        cursor: pointer;
+        font-size: 15px;
+        border-bottom: 1px solid #eee;
+    }
+
+    #sugerencias div:hover {
+        background: #f4f4f4;
+    }
+
+    /* LISTA DE PRODUCTOS */
+    #listaProductos {
+        margin-top: 25px;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
     #listaProductos .card {
         background: white;
         margin: 10px 0;
@@ -23,20 +79,29 @@
         border-radius: 8px;
         cursor: pointer;
         border-left: 6px solid #00416A;
+        box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
     }
+
+    /* DETALLE DEL PRODUCTO */
     #detalleProducto {
         background: white;
         padding: 20px;
         border-radius: 10px;
-        margin-top: 15px;
+        margin-top: 25px;
         display: none;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
+        box-shadow: 0px 2px 8px rgba(0,0,0,0.2);
     }
+
     .linea-box {
         background: #e8f2f8;
         padding: 10px;
         margin: 5px 0;
         border-radius: 6px;
     }
+
     button {
         background: #00416A;
         color: white;
@@ -46,19 +111,6 @@
         cursor: pointer;
         margin-top: 10px;
     }
-    input {
-        width: 100%;
-        padding: 10px;
-        margin: 8px 0;
-        border-radius: 6px;
-        border: 1px solid #ccc;
-    }
-    #buscadorBox {
-        position: relative;
-    }
-    #sugerencias div:hover {
-        background: #f0f0f0;
-    }
 </style>
 </head>
 
@@ -66,18 +118,16 @@
 
 <h2>Catálogo de Productos</h2>
 
+<!-- BUSCADOR -->
 <div id="buscadorBox">
     <input id="buscar" placeholder="Buscar por código o descripción...">
-    <div id="sugerencias" 
-        style="background:white;border:1px solid #ccc;display:none;
-               position:absolute;width:100%;z-index:99;
-               max-height:250px;overflow-y:auto;border-radius:6px;
-               top:45px;">
-    </div>
+    <div id="sugerencias"></div>
 </div>
 
+<!-- LISTA DE PRODUCTOS -->
 <div id="listaProductos"></div>
 
+<!-- DETALLE -->
 <div id="detalleProducto">
     <h3 id="tituloProd"></h3>
 
@@ -103,20 +153,13 @@
     <button onclick="cerrarDetalle()">Cerrar</button>
 </div>
 
-<!-- Firebase -->
+<!-- FIREBASE -->
 <script type="module">
-import { 
-    initializeApp 
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getFirestore, collection, getDocs, addDoc } 
+from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-import {
-    getFirestore, collection, getDocs, doc,
-    addDoc
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-/* =======================================================
-   CONFIGURA TUS CREDENCIALES
-========================================================= */
+/* CONFIG FIREBASE */
 const firebaseConfig = {
   apiKey: "AIzaSyCK5nb6u2CGRJ8AB1aPlRn54b97bdeAFeM",
   authDomain: "inventariopv-643f1.firebaseapp.com",
@@ -132,43 +175,35 @@ const db = getFirestore(app);
 let productos = [];
 let productoActual = null;
 
-/* =======================================================
-   CARGAR PRODUCTOS
-========================================================= */
+/* CARGAR PRODUCTOS */
 async function cargarProductos() {
     const ref = collection(db, "productos");
     const snap = await getDocs(ref);
 
     productos = [];
-    snap.forEach(d => {
-        productos.push({ id: d.id, ...d.data() });
-    });
+    snap.forEach(d => productos.push({ id: d.id, ...d.data() }));
 
     mostrarLista(productos);
 }
 
+/* BUSCADOR */
 const inputBuscar = document.getElementById("buscar");
 const sugerencias = document.getElementById("sugerencias");
 
-/* =======================================================
-   BUSCADOR CON SUGERENCIAS
-========================================================= */
 inputBuscar.addEventListener("input", () => {
     const t = inputBuscar.value.toLowerCase().trim();
 
     if (!t) {
         sugerencias.style.display = "none";
-        sugerencias.innerHTML = "";
         mostrarLista(productos);
         return;
     }
 
- const filtrado = productos.filter(p => {
-    const cod = String(p.codigoBarra ?? "").toLowerCase();
-    const desc = String(p.concepto ?? "").toLowerCase();
-    return cod.includes(t) || desc.includes(t);
-});
-
+    const filtrado = productos.filter(p => {
+        const cod = String(p.codigoBarra ?? "").toLowerCase();
+        const desc = String(p.concepto ?? "").toLowerCase();
+        return cod.includes(t) || desc.includes(t);
+    });
 
     mostrarLista(filtrado);
 
@@ -182,24 +217,17 @@ inputBuscar.addEventListener("input", () => {
 
     filtrado.slice(0, 10).forEach(p => {
         const div = document.createElement("div");
-        div.style.padding = "10px";
-        div.style.cursor = "pointer";
-        div.style.borderBottom = "1px solid #eee";
-        div.innerHTML = `<b>${p.codigoBarra}</b> - ${p.concepto}`;
-
+        div.innerHTML = `<b>${String(p.codigoBarra)}</b> - ${String(p.concepto)}`;
         div.onclick = () => {
-            inputBuscar.value = `${p.codigoBarra} | ${p.concepto}`;
+            inputBuscar.value = `${String(p.codigoBarra)} | ${String(p.concepto)}`;
             sugerencias.style.display = "none";
             abrirProducto(p);
         };
-
         sugerencias.appendChild(div);
     });
 });
 
-/* =======================================================
-   MOSTRAR LISTA
-========================================================= */
+/* LISTA */
 function mostrarLista(arr) {
     const cont = document.getElementById("listaProductos");
     cont.innerHTML = "";
@@ -207,40 +235,32 @@ function mostrarLista(arr) {
     arr.forEach(p => {
         const div = document.createElement("div");
         div.className = "card";
-        div.innerHTML = `
-            <b>${p.codigoBarra}</b><br>
-            ${p.concepto}
-        `;
+        div.innerHTML = `<b>${String(p.codigoBarra)}</b><br>${String(p.concepto)}`;
         div.onclick = () => abrirProducto(p);
         cont.appendChild(div);
     });
 }
 
-/* =======================================================
-   ABRIR DETALLE
-========================================================= */
+/* DETALLE */
 function abrirProducto(p) {
     productoActual = p;
 
     document.getElementById("detalleProducto").style.display = "block";
-
-    document.getElementById("tituloProd").innerText = p.concepto;
-    document.getElementById("codigoProd").innerText = p.codigoBarra;
-    document.getElementById("descProd").innerText = p.concepto;
-    document.getElementById("activoProd").innerText = p.activo;
-    document.getElementById("mayoreoProd").innerText = p.mayoreo;
-    document.getElementById("medioProd").innerText = p.medioMayoreo;
-    document.getElementById("menudeoProd").innerText = p.menudeo;
-    document.getElementById("costoProd").innerText = p.costoSinImpuesto;
-    document.getElementById("satProd").innerText = p.claveSat;
-    document.getElementById("marcaProd").innerText = p.marca;
+    document.getElementById("tituloProd").innerText = p.concepto ?? "";
+    document.getElementById("codigoProd").innerText = p.codigoBarra ?? "";
+    document.getElementById("descProd").innerText = p.concepto ?? "";
+    document.getElementById("activoProd").innerText = p.activo ?? "";
+    document.getElementById("mayoreoProd").innerText = p.mayoreo ?? "";
+    document.getElementById("medioProd").innerText = p.medioMayoreo ?? "";
+    document.getElementById("menudeoProd").innerText = p.menudeo ?? "";
+    document.getElementById("costoProd").innerText = p.costoSinImpuesto ?? "";
+    document.getElementById("satProd").innerText = p.claveSat ?? "";
+    document.getElementById("marcaProd").innerText = p.marca ?? "";
 
     cargarLineas(p.id);
 }
 
-/* =======================================================
-   CARGAR LÍNEAS
-========================================================= */
+/* LÍNEAS */
 async function cargarLineas(id) {
     const ref = collection(db, "productos", id, "lineas");
     const snap = await getDocs(ref);
@@ -250,26 +270,18 @@ async function cargarLineas(id) {
 
     snap.forEach(d => {
         const data = d.data();
-        const div = document.createElement("div");
-        div.className = "linea-box";
-        div.innerHTML = `<b>${data.nombre}</b><br>${data.extra ?? ""}`;
-        cont.appendChild(div);
+        cont.innerHTML += `<div class="linea-box"><b>${data.nombre}</b><br>${data.extra ?? ""}</div>`;
     });
 }
 
-/* =======================================================
-   AGREGAR LÍNEA
-========================================================= */
+/* AGREGAR LÍNEA */
 async function agregarLinea() {
     if (!productoActual) return;
 
     const nombre = document.getElementById("nuevaLinea").value.trim();
     const extra = document.getElementById("infoExtra").value.trim();
 
-    if (!nombre) {
-        alert("Ingresa el nombre de la nueva línea");
-        return;
-    }
+    if (!nombre) return alert("Ingresa el nombre de la nueva línea");
 
     await addDoc(collection(db, "productos", productoActual.id, "lineas"), {
         nombre,
@@ -279,19 +291,15 @@ async function agregarLinea() {
 
     document.getElementById("nuevaLinea").value = "";
     document.getElementById("infoExtra").value = "";
-
     cargarLineas(productoActual.id);
 }
 
-/* =======================================================
-   CERRAR DETALLE
-========================================================= */
+/* CERRAR DETALLE */
 function cerrarDetalle() {
     document.getElementById("detalleProducto").style.display = "none";
 }
 
 cargarProductos();
-
 </script>
 
 </body>
