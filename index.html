@@ -11,24 +11,19 @@
         background: #f2f2f2;
         margin: 0;
         padding: 20px;
-        overflow-x: hidden;
     }
-
     h2 {
         text-align: center;
         color: #00416A;
-        margin-bottom: 20px;
     }
 
-    /* CONTENEDOR DEL BUSCADOR */
+    /* BUSCADOR */
     #buscadorBox {
         position: relative;
         z-index: 9999;
-        width: 100%;
         max-width: 600px;
         margin: auto;
     }
-
     #buscar {
         width: 100%;
         padding: 12px;
@@ -36,65 +31,50 @@
         border: 1px solid #bbb;
         font-size: 16px;
     }
-
-    /* SUGERENCIAS */
     #sugerencias {
         position: absolute;
-        top: calc(100% + 5px);
+        top: calc(100% + 4px);
         left: 0;
         width: 100%;
         background: white;
         border: 1px solid #ccc;
         border-radius: 6px;
+        display: none;
         max-height: 260px;
         overflow-y: auto;
-        display: none;
         z-index: 99999;
         box-shadow: 0px 2px 8px rgba(0,0,0,0.2);
     }
-
     #sugerencias div {
         padding: 10px;
         cursor: pointer;
-        font-size: 15px;
         border-bottom: 1px solid #eee;
     }
-
     #sugerencias div:hover {
         background: #f4f4f4;
     }
 
-    /* LISTA DE PRODUCTOS */
-    #listaProductos {
-        margin-top: 25px;
-        max-width: 800px;
-        margin-left: auto;
-        margin-right: auto;
-    }
-
+    /* LISTA */
     #listaProductos .card {
         background: white;
-        margin: 10px 0;
-        padding: 15px;
+        margin: 10px auto;
+        padding: 14px;
         border-radius: 8px;
         cursor: pointer;
         border-left: 6px solid #00416A;
-        box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
+        max-width: 800px;
     }
 
-    /* DETALLE DEL PRODUCTO */
+    /* DETALLE */
     #detalleProducto {
         background: white;
         padding: 20px;
         border-radius: 10px;
-        margin-top: 25px;
+        margin: 25px auto;
         display: none;
         max-width: 800px;
-        margin-left: auto;
-        margin-right: auto;
         box-shadow: 0px 2px 8px rgba(0,0,0,0.2);
     }
-
     .linea-box {
         background: #e8f2f8;
         padding: 10px;
@@ -118,34 +98,38 @@
 
 <h2>Catálogo de Productos</h2>
 
-<!-- BUSCADOR -->
 <div id="buscadorBox">
     <input id="buscar" placeholder="Buscar por código o descripción...">
     <div id="sugerencias"></div>
 </div>
 
-<!-- LISTA DE PRODUCTOS -->
 <div id="listaProductos"></div>
 
-<!-- DETALLE -->
 <div id="detalleProducto">
     <h3 id="tituloProd"></h3>
 
     <p><b>Código:</b> <span id="codigoProd"></span></p>
     <p><b>Descripción:</b> <span id="descProd"></span></p>
     <p><b>Activo:</b> <span id="activoProd"></span></p>
-    <p><b>Mayoreo:</b> <span id="mayoreoProd"></span></p>
-    <p><b>Medio Mayoreo:</b> <span id="medioProd"></span></p>
-    <p><b>Menudeo:</b> <span id="menudeoProd"></span></p>
-    <p><b>Costo sin impuesto:</b> <span id="costoProd"></span></p>
-    <p><b>Clave SAT:</b> <span id="satProd"></span></p>
+    <p><b>Departamento:</b> <span id="deptoProd"></span></p>
     <p><b>Marca:</b> <span id="marcaProd"></span></p>
+    <p><b>Cantidad por caja:</b> <span id="cajaProd"></span></p>
+
+    <p><b>Precio Público:</b> <span id="pubProd"></span></p>
+    <p><b>Mayoreo:</b> <span id="mayProd"></span></p>
+    <p><b>Medio Mayoreo:</b> <span id="medioProd"></span></p>
+    <p><b>Costo sin impuesto:</b> <span id="costoProd"></span></p>
+
+    <p><b>IVA:</b> <span id="ivaProd"></span></p>
+    <p><b>IEPS:</b> <span id="iepsProd"></span></p>
+    <p><b>Unidad SAT:</b> <span id="unidadProd"></span></p>
+    <p><b>Última actualización:</b> <span id="updateProd"></span></p>
 
     <h3>Líneas registradas</h3>
     <div id="lineasBox"></div>
 
     <h3>Agregar nueva línea</h3>
-    <input id="nuevaLinea" placeholder="Nombre de la marca / categoría">
+    <input id="nuevaLinea" placeholder="Nombre de marca / categoría">
     <input id="infoExtra" placeholder="Información extra (opcional)">
     <button onclick="agregarLinea()">Guardar Línea</button>
 
@@ -153,10 +137,11 @@
     <button onclick="cerrarDetalle()">Cerrar</button>
 </div>
 
-<!-- FIREBASE -->
+<!-- Firebase -->
 <script type="module">
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, getDocs, addDoc } 
+import { getFirestore, collection, getDocs, addDoc }
 from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 /* CONFIG FIREBASE */
@@ -219,7 +204,7 @@ inputBuscar.addEventListener("input", () => {
         const div = document.createElement("div");
         div.innerHTML = `<b>${String(p.codigoBarra)}</b> - ${String(p.concepto)}`;
         div.onclick = () => {
-            inputBuscar.value = `${String(p.codigoBarra)} | ${String(p.concepto)}`;
+            inputBuscar.value = `${p.codigoBarra} | ${p.concepto}`;
             sugerencias.style.display = "none";
             abrirProducto(p);
         };
@@ -227,11 +212,10 @@ inputBuscar.addEventListener("input", () => {
     });
 });
 
-/* LISTA */
+/* MOSTRAR LISTA */
 function mostrarLista(arr) {
     const cont = document.getElementById("listaProductos");
     cont.innerHTML = "";
-
     arr.forEach(p => {
         const div = document.createElement("div");
         div.className = "card";
@@ -241,26 +225,34 @@ function mostrarLista(arr) {
     });
 }
 
-/* DETALLE */
+/* ABRIR DETALLE */
 function abrirProducto(p) {
     productoActual = p;
 
     document.getElementById("detalleProducto").style.display = "block";
+
     document.getElementById("tituloProd").innerText = p.concepto ?? "";
     document.getElementById("codigoProd").innerText = p.codigoBarra ?? "";
     document.getElementById("descProd").innerText = p.concepto ?? "";
-    document.getElementById("activoProd").innerText = p.activo ?? "";
-    document.getElementById("mayoreoProd").innerText = p.mayoreo ?? "";
-    document.getElementById("medioProd").innerText = p.medioMayoreo ?? "";
-    document.getElementById("menudeoProd").innerText = p.menudeo ?? "";
-    document.getElementById("costoProd").innerText = p.costoSinImpuesto ?? "";
-    document.getElementById("satProd").innerText = p.claveSat ?? "";
+    document.getElementById("activoProd").innerText = p.activo ? "Sí" : "No";
+    document.getElementById("deptoProd").innerText = p.departamento ?? "";
     document.getElementById("marcaProd").innerText = p.marca ?? "";
+    document.getElementById("cajaProd").innerText = p.cantidadPorCaja ?? "";
+
+    document.getElementById("pubProd").innerText = p.precioPublico ?? "";
+    document.getElementById("mayProd").innerText = p.mayoreo ?? "";
+    document.getElementById("medioProd").innerText = p.medioMayoreo ?? "";
+    document.getElementById("costoProd").innerText = p.costoSinImpuesto ?? "";
+
+    document.getElementById("ivaProd").innerText = p.ivaTasa ?? "";
+    document.getElementById("iepsProd").innerText = p.iepsTasa ?? "";
+    document.getElementById("unidadProd").innerText = p.unidadMedidaSat ?? "";
+    document.getElementById("updateProd").innerText = p.updatedAt ?? "";
 
     cargarLineas(p.id);
 }
 
-/* LÍNEAS */
+/* CARGAR LÍNEAS */
 async function cargarLineas(id) {
     const ref = collection(db, "productos", id, "lineas");
     const snap = await getDocs(ref);
@@ -289,9 +281,9 @@ async function agregarLinea() {
         fecha: new Date().toISOString()
     });
 
+    cargarLineas(productoActual.id);
     document.getElementById("nuevaLinea").value = "";
     document.getElementById("infoExtra").value = "";
-    cargarLineas(productoActual.id);
 }
 
 /* CERRAR DETALLE */
@@ -300,6 +292,7 @@ function cerrarDetalle() {
 }
 
 cargarProductos();
+
 </script>
 
 </body>
