@@ -163,10 +163,12 @@ inputBuscar.addEventListener("input", () => {
         return;
     }
 
-    const filtrado = productos.filter(p =>
-        (p.codigoBarra ?? "").toLowerCase().includes(t) ||
-        (p.concepto ?? "").toLowerCase().includes(t)
-    );
+ const filtrado = productos.filter(p => {
+    const cod = String(p.codigoBarra ?? "").toLowerCase();
+    const desc = String(p.concepto ?? "").toLowerCase();
+    return cod.includes(t) || desc.includes(t);
+});
+
 
     mostrarLista(filtrado);
 
