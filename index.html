@@ -1,142 +1,233 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Consulta de Productos</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<title>Catálogo de Productos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import {
-      getFirestore, collection, getDocs, query, where
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-    // --- Firebase ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyCK5nb6u2CGRJ8AB1aPlRn54b97bdeAFeM",
-      authDomain: "inventariopv-643f1.firebaseapp.com",
-      projectId: "inventariopv-643f1",
-      storageBucket: "inventariopv-643f1.firebasestorage.app",
-      messagingSenderId: "96242533231",
-      appId: "1:96242533231:web:aae75a18fbaf9840529e9a"
-    };
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    // --- UI refs ---
-    const tableBody = document.getElementById("tabla-productos");
-    const inputBuscador = document.getElementById("buscador");
-
-    let productos = [];
-
-    // Helper para leer campos con nombres viejos/nuevos
-    const getCampo = (obj, ...nombres) => {
-      for (const n of nombres) {
-        if (obj[n] !== undefined && obj[n] !== null) return obj[n];
-      }
-      return "";
-    };
-
-    async function cargarProductos() {
-      try {
-        const productosRef = collection(db, "productos");
-        // Solo activos = true
-        const q = query(productosRef, where("activo", "==", true));
-        const snapshot = await getDocs(q);
-
-        productos = [];
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          // Normalizamos los campos que usamos
-          productos.push({
-            concepto: getCampo(data, "concepto", "Concepto"),
-            codigoBarra: getCampo(data, "codigoBarra", "Codigo Barra"),
-            precioPublico: Number(getCampo(data, "precioPublico", "Precio Publico") || 0)
-          });
-        });
-
-        // Orden por concepto
-        productos.sort((a, b) => (a.concepto || "").localeCompare(b.concepto || ""));
-        mostrarProductos(productos.slice(0, 8)); // solo 8 al inicio
-      } catch (e) {
-        console.error(e);
-        tableBody.innerHTML = `<tr><td colspan="3">Error cargando productos.</td></tr>`;
-      }
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f2f2f2;
+        margin: 0;
+        padding: 20px;
     }
-
-    function formateaPrecio(n) {
-      const num = Number(n) || 0;
-      try {
-        return num.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
-      } catch {
-        return `$${num.toFixed(2)}`;
-      }
+    h2 {
+        text-align: center;
+        color: #00416A;
     }
-
-    function mostrarProductos(lista) {
-      tableBody.innerHTML = "";
-      if (!lista.length) {
-        tableBody.innerHTML = `<tr><td colspan="3" style="text-align:center">Sin resultados</td></tr>`;
-        return;
-      }
-      for (const p of lista) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${p.concepto}</td>
-          <td>${p.codigoBarra}</td>
-          <td>${formateaPrecio(p.precioPublico)}</td>
-        `;
-        tableBody.appendChild(tr);
-      }
+    #listaProductos .card {
+        background: white;
+        margin: 10px 0;
+        padding: 15px;
+        border-radius: 8px;
+        cursor: pointer;
+        border-left: 6px solid #00416A;
     }
+    #detalleProducto {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        margin-top: 15px;
+        display: none;
+    }
+    .linea-box {
+        background: #e8f2f8;
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 6px;
+    }
+    button {
+        background: #00416A;
+        color: white;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+    input {
+        width: 100%;
+        padding: 10px;
+        margin: 8px 0;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+    }
+</style>
+</head>
 
-    inputBuscador.addEventListener("input", () => {
-      const texto = inputBuscador.value.trim().toLowerCase();
-      const filtrados = productos.filter(p =>
-        (p.concepto || "").toLowerCase().includes(texto) ||
-        (p.codigoBarra || "").toLowerCase().includes(texto)
-      );
-      mostrarProductos(filtrados.slice(0, 8));
+<body>
+
+<h2>Catálogo de Productos</h2>
+
+<input id="buscar" placeholder="Buscar por código o descripción...">
+
+<div id="listaProductos"></div>
+
+<div id="detalleProducto">
+    <h3 id="tituloProd"></h3>
+    <p><b>Código:</b> <span id="codigoProd"></span></p>
+    <p><b>Descripción:</b> <span id="descProd"></span></p>
+
+    <h3>Líneas registradas</h3>
+    <div id="lineasBox"></div>
+
+    <h3>Agregar nueva línea</h3>
+    <input id="nuevaLinea" placeholder="Nombre de la línea">
+    <input id="infoExtra" placeholder="Información extra">
+    <button onclick="agregarLinea()">Guardar Línea</button>
+
+    <br><br>
+    <button onclick="cerrarDetalle()">Cerrar</button>
+</div>
+
+<!-- Firebase -->
+<script type="module">
+import { 
+    initializeApp 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+
+import {
+    getFirestore, collection, getDocs, doc,
+    addDoc
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+/* =======================================================
+   CONFIGURA TUS CREDENCIALES AQUI
+========================================================= */
+const firebaseConfig = {
+    apiKey: "TU_API_KEY",
+    authDomain: "TU_AUTH_DOMAIN",
+    projectId: "TU_PROJECT_ID",
+    storageBucket: "TU_BUCKET",
+    messagingSenderId: "ID",
+    appId: "ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let productos = [];
+let productoActual = null;
+
+/* =======================================================
+   CARGAR TODOS LOS PRODUCTOS
+========================================================= */
+async function cargarProductos() {
+    const ref = collection(db, "productos");
+    const snap = await getDocs(ref);
+
+    productos = [];
+    snap.forEach(d => {
+        productos.push({ id: d.id, ...d.data() });
     });
 
-    cargarProductos();
-  </script>
+    mostrarLista(productos);
+}
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(to right, #00416A, #E4E5E6);
-      padding: 20px; margin: 0; color: white; min-height: 100vh;
+/* =======================================================
+   MOSTRAR LISTA
+========================================================= */
+function mostrarLista(arr) {
+    const cont = document.getElementById("listaProductos");
+    cont.innerHTML = "";
+
+    arr.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
+            <b>${p.codigoBarra}</b><br>
+            ${p.concepto}
+        `;
+        div.onclick = () => abrirProducto(p);
+        cont.appendChild(div);
+    });
+}
+
+/* =======================================================
+   BUSCADOR
+========================================================= */
+document.getElementById("buscar").addEventListener("input", () => {
+    const t = document.getElementById("buscar").value.toLowerCase();
+    const filtrado = productos.filter(p =>
+        p.codigoBarra.toLowerCase().includes(t) ||
+        p.concepto.toLowerCase().includes(t)
+    );
+    mostrarLista(filtrado);
+});
+
+/* =======================================================
+   ABRIR PRODUCTO
+========================================================= */
+async function abrirProducto(p) {
+    productoActual = p;
+
+    document.getElementById("detalleProducto").style.display = "block";
+    document.getElementById("tituloProd").innerText = p.concepto;
+    document.getElementById("codigoProd").innerText = p.codigoBarra;
+    document.getElementById("descProd").innerText = p.concepto;
+
+    cargarLineas(p.id);
+}
+
+/* =======================================================
+   CARGAR LÍNEAS (subcolección)
+========================================================= */
+async function cargarLineas(id) {
+    const ref = collection(db, "productos", id, "lineas");
+    const snap = await getDocs(ref);
+
+    const cont = document.getElementById("lineasBox");
+    cont.innerHTML = "";
+
+    snap.forEach(d => {
+        const data = d.data();
+        const div = document.createElement("div");
+        div.className = "linea-box";
+        div.innerHTML = `
+            <b>${data.nombre}</b><br>
+            ${data.extra ?? ""}
+        `;
+        cont.appendChild(div);
+    });
+}
+
+/* =======================================================
+   AGREGAR NUEVA LÍNEA
+========================================================= */
+async function agregarLinea() {
+    if (!productoActual) return;
+
+    const nombre = document.getElementById("nuevaLinea").value.trim();
+    const extra = document.getElementById("infoExtra").value.trim();
+
+    if (!nombre) {
+        alert("Ingresa un nombre de línea");
+        return;
     }
-    h1 { text-align: center; margin-bottom: 20px; }
-    input {
-      width: 100%; padding: 12px; font-size: 16px; margin-bottom: 20px;
-      border-radius: 6px; border: none;
-    }
-    .contenedor-tabla {
-      max-height: 400px; overflow-y: auto; background: white; border-radius: 8px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.3);
-    }
-    table { width: 100%; border-collapse: collapse; color: black; }
-    th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
-    th { background-color: #00416A; color: white; position: sticky; top: 0; }
-    tr:hover { background-color: #f0f0f0; }
-  </style>
-</head>
-<body>
-  <h1>Consulta de Productos</h1>
-  <input type="text" id="buscador" placeholder="Buscar por descripción o código...">
-  <div class="contenedor-tabla">
-    <table>
-      <thead>
-        <tr>
-          <th>DESCRIPCIÓN</th>
-          <th>CÓDIGO</th>
-          <th>PRECIO</th>
-        </tr>
-      </thead>
-      <tbody id="tabla-productos"></tbody>
-    </table>
-  </div>
+
+    await addDoc(collection(db, "productos", productoActual.id, "lineas"), {
+        nombre,
+        extra,
+        fecha: new Date().toISOString()
+    });
+
+    document.getElementById("nuevaLinea").value = "";
+    document.getElementById("infoExtra").value = "";
+
+    cargarLineas(productoActual.id);
+}
+
+/* =======================================================
+   CERRAR DETALLE
+========================================================= */
+function cerrarDetalle() {
+    document.getElementById("detalleProducto").style.display = "none";
+}
+
+cargarProductos();
+
+</script>
+
 </body>
 </html>
