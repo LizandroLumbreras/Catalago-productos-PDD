@@ -163,10 +163,15 @@ input.addEventListener("input", () => {
 
     if (!t) return;
 
-    const filtrado = productos.filter(p =>
-        String(p.codigoBarra ?? "").toLowerCase().includes(t) ||
-        String(p.concepto ?? "").toLowerCase().includes(t)
-    );
+    // Convertir el texto buscado en palabras separadas
+    const palabras = t.split(" ").filter(x => x.length > 0);
+
+    const filtrado = productos.filter(p => {
+        const concepto = String(p.concepto ?? "").toLowerCase();
+
+        // Cada palabra escrita debe estar dentro del concepto
+        return palabras.every(palabra => concepto.includes(palabra));
+    });
 
     if (filtrado.length === 0) return;
 
@@ -174,11 +179,13 @@ input.addEventListener("input", () => {
 
     filtrado.slice(0, 10).forEach(p => {
         const div = document.createElement("div");
-        div.innerHTML = `<b>${p.codigoBarra}</b> - ${p.concepto}`;
+        div.innerHTML = `<b>${p.codigoBarra ?? ""}</b> - ${p.concepto}`;
         div.onclick = () => seleccionarProducto(p);
         sug.appendChild(div);
     });
 });
+
+
 
 /* Seleccionar producto */
 function seleccionarProducto(p) {
