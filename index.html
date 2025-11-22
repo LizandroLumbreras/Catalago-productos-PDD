@@ -68,11 +68,39 @@
         box-shadow: 0 2px 6px rgba(0,0,0,.2);
     }
 
-    .linea-box {
-        background: #e8f2f8;
-        padding: 10px;
-        margin: 5px 0;
-        border-radius: 6px;
+    .switch {
+        position: relative;
+        width: 50px;
+        height: 24px;
+        display: inline-block;
+    }
+    .switch input {
+        display: none;
+    }
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        background: #ccc;
+        border-radius: 24px;
+        top: 0; left: 0; right: 0; bottom: 0;
+        transition: .3s;
+    }
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        bottom: 3px;
+        background: white;
+        border-radius: 50%;
+        transition: .3s;
+    }
+    input:checked + .slider {
+        background: #00416A;
+    }
+    input:checked + .slider:before {
+        transform: translateX(26px);
     }
 
     button {
@@ -92,15 +120,27 @@
 <h2>Catálogo de Productos</h2>
 
 <div id="buscadorBox">
-    <input id="buscar" placeholder="Buscar por código o descripción...">
+    <input id="buscar" placeholder="Buscar por descripción...">
     <div id="sugerencias"></div>
 </div>
 
 <div id="detalleProducto">
     <h3 id="tituloProd"></h3>
+
     <p><b>Código:</b> <span id="codigoProd"></span></p>
     <p><b>Descripción:</b> <span id="descProd"></span></p>
-    <p><b>Activo:</b> <span id="activoProd"></span></p>
+
+    <p><b>Activo:</b>
+        <label class="switch">
+            <input type="checkbox" id="switchActivo">
+            <span class="slider"></span>
+        </label>
+    </p>
+
+    <p><b>Proveedor:</b><br>
+        <input id="proveedorInput" placeholder="Ingresa proveedor..." style="width:100%;padding:8px;">
+    </p>
+
     <p><b>Departamento:</b> <span id="deptoProd"></span></p>
     <p><b>Marca:</b> <span id="marcaProd"></span></p>
     <p><b>Precio público:</b> <span id="pubProd"></span></p>
@@ -111,14 +151,7 @@
     <p><b>IEPS:</b> <span id="iepsProd"></span></p>
     <p><b>Caja:</b> <span id="cajaProd"></span></p>
 
-    <h3>Líneas registradas</h3>
-    <div id="lineasBox"></div>
-
-    <h3>Agregar línea</h3>
-    <input id="nuevaLinea" placeholder="Nombre de marca / categoría"><br>
-    <input id="infoExtra" placeholder="Información extra (opcional)">
-    <button onclick="agregarLinea()">Guardar línea</button>
-
+    <button onclick="guardarCambios()">Guardar Cambios</button>
     <br><br>
     <button onclick="cerrarDetalle()">Cerrar</button>
 </div>
@@ -126,7 +159,7 @@
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, getDocs, addDoc }
+import { getFirestore, collection, getDocs, doc, updateDoc }
 from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -144,7 +177,7 @@ const db = getFirestore(app);
 let productos = [];
 let productoActual = null;
 
-/* Cargar productos solo de la colección /productos */
+/* Cargar productos */
 async function cargarProductos() {
     const snap = await getDocs(collection(db, "productos"));
     productos = [];
@@ -152,7 +185,7 @@ async function cargarProductos() {
 }
 cargarProductos();
 
-/* Buscar */
+/* Buscador */
 const input = document.getElementById("buscar");
 const sug = document.getElementById("sugerencias");
 
@@ -163,13 +196,10 @@ input.addEventListener("input", () => {
 
     if (!t) return;
 
-    // Convertir el texto buscado en palabras separadas
     const palabras = t.split(" ").filter(x => x.length > 0);
 
     const filtrado = productos.filter(p => {
         const concepto = String(p.concepto ?? "").toLowerCase();
-
-        // Cada palabra escrita debe estar dentro del concepto
         return palabras.every(palabra => concepto.includes(palabra));
     });
 
@@ -184,8 +214,6 @@ input.addEventListener("input", () => {
         sug.appendChild(div);
     });
 });
-
-
 
 /* Seleccionar producto */
 function seleccionarProducto(p) {
@@ -204,7 +232,11 @@ function abrirProducto(p) {
     document.getElementById("tituloProd").innerText = p.concepto ?? "";
     document.getElementById("codigoProd").innerText = p.codigoBarra ?? "";
     document.getElementById("descProd").innerText = p.concepto ?? "";
-    document.getElementById("activoProd").innerText = p.activo ? "Sí" : "No";
+
+    document.getElementById("switchActivo").checked = p.activo === true;
+
+    document.getElementById("proveedorInput").value = p.proveedor ?? "";
+
     document.getElementById("deptoProd").innerText = p.departamento ?? "";
     document.getElementById("marcaProd").innerText = p.marca ?? "";
     document.getElementById("pubProd").innerText = p.precioPublico ?? "";
@@ -214,56 +246,33 @@ function abrirProducto(p) {
     document.getElementById("ivaProd").innerText = p.ivaTasa ?? "";
     document.getElementById("iepsProd").innerText = p.iepsTasa ?? "";
     document.getElementById("cajaProd").innerText = p.cantidadPorCaja ?? "";
-
-    cargarLineas(p.id);
 }
 
-/* Cargar líneas */
-async function cargarLineas(id) {
-    const snap = await getDocs(collection(db, "productos", id, "lineas"));
-    const cont = document.getElementById("lineasBox");
-    cont.innerHTML = "";
+/* Guardar cambios */
+async function guardarCambios() {
 
-    snap.forEach(d => {
-        const l = d.data();
-        cont.innerHTML += `
-            <div class='linea-box'>
-                <b>${l.nombre}</b><br>${l.extra ?? ""}
-            </div>`;
-    });
-}
-
-/* Agregar línea */
-async function agregarLinea() {
     if (!productoActual) return;
 
-    const nombre = document.getElementById("nuevaLinea").value.trim();
-    const extra = document.getElementById("infoExtra").value.trim();
+    const activoNuevo = document.getElementById("switchActivo").checked;
+    const proveedorNuevo = document.getElementById("proveedorInput").value.trim();
 
-    if (!nombre) return alert("Escribe un nombre");
-
-    await addDoc(collection(db, "productos", productoActual.id, "lineas"), {
-        nombre,
-        extra,
-        fecha: new Date().toISOString()
+    await updateDoc(doc(db, "productos", productoActual.id), {
+        activo: activoNuevo,
+        proveedor: proveedorNuevo
     });
 
-    cargarLineas(productoActual.id);
-
-    document.getElementById("nuevaLinea").value = "";
-    document.getElementById("infoExtra").value = "";
+    alert("Cambios guardados correctamente.");
 }
 
 /* Cerrar */
 function cerrarDetalle() {
     document.getElementById("detalleProducto").style.display = "none";
 }
-    
-// --- HACER FUNCIONES ACCESIBLES EN EL HTML ---
+
 window.seleccionarProducto = seleccionarProducto;
-window.agregarLinea = agregarLinea;
+window.guardarCambios = guardarCambios;
 window.cerrarDetalle = cerrarDetalle;
-    
+
 </script>
 
 </body>
