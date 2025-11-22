@@ -12,25 +12,28 @@
         margin: 0;
         padding: 20px;
     }
+
     h2 {
         text-align: center;
         color: #00416A;
     }
 
-    /* BUSCADOR */
+    /* Buscador */
     #buscadorBox {
         position: relative;
-        z-index: 9999;
         max-width: 600px;
         margin: auto;
+        z-index: 99;
     }
+
     #buscar {
         width: 100%;
         padding: 12px;
+        font-size: 16px;
         border-radius: 6px;
         border: 1px solid #bbb;
-        font-size: 16px;
     }
+
     #sugerencias {
         position: absolute;
         top: calc(100% + 4px);
@@ -40,41 +43,33 @@
         border: 1px solid #ccc;
         border-radius: 6px;
         display: none;
-        max-height: 260px;
+        max-height: 250px;
         overflow-y: auto;
-        z-index: 99999;
+        z-index: 999;
         box-shadow: 0px 2px 8px rgba(0,0,0,0.2);
     }
+
     #sugerencias div {
         padding: 10px;
         cursor: pointer;
         border-bottom: 1px solid #eee;
     }
+
     #sugerencias div:hover {
         background: #f4f4f4;
     }
 
-    /* LISTA */
-    #listaProductos .card {
-        background: white;
-        margin: 10px auto;
-        padding: 14px;
-        border-radius: 8px;
-        cursor: pointer;
-        border-left: 6px solid #00416A;
-        max-width: 800px;
-    }
-
-    /* DETALLE */
+    /* Detalle */
     #detalleProducto {
         background: white;
         padding: 20px;
-        border-radius: 10px;
         margin: 25px auto;
-        display: none;
         max-width: 800px;
-        box-shadow: 0px 2px 8px rgba(0,0,0,0.2);
+        border-radius: 10px;
+        display: none;
+        box-shadow: 0px 2px 10px rgba(0,0,0,0.2);
     }
+
     .linea-box {
         background: #e8f2f8;
         padding: 10px;
@@ -85,11 +80,11 @@
     button {
         background: #00416A;
         color: white;
-        border: none;
         padding: 10px 16px;
         border-radius: 6px;
         cursor: pointer;
-        margin-top: 10px;
+        border: none;
+        margin-top: 6px;
     }
 </style>
 </head>
@@ -98,13 +93,13 @@
 
 <h2>Catálogo de Productos</h2>
 
+<!-- Buscador -->
 <div id="buscadorBox">
     <input id="buscar" placeholder="Buscar por código o descripción...">
     <div id="sugerencias"></div>
 </div>
 
-<div id="listaProductos"></div>
-
+<!-- Detalle -->
 <div id="detalleProducto">
     <h3 id="tituloProd"></h3>
 
@@ -113,9 +108,9 @@
     <p><b>Activo:</b> <span id="activoProd"></span></p>
     <p><b>Departamento:</b> <span id="deptoProd"></span></p>
     <p><b>Marca:</b> <span id="marcaProd"></span></p>
-    <p><b>Cantidad por caja:</b> <span id="cajaProd"></span></p>
+    <p><b>Caja:</b> <span id="cajaProd"></span></p>
 
-    <p><b>Precio Público:</b> <span id="pubProd"></span></p>
+    <p><b>Precio público:</b> <span id="pubProd"></span></p>
     <p><b>Mayoreo:</b> <span id="mayProd"></span></p>
     <p><b>Medio Mayoreo:</b> <span id="medioProd"></span></p>
     <p><b>Costo sin impuesto:</b> <span id="costoProd"></span></p>
@@ -123,28 +118,26 @@
     <p><b>IVA:</b> <span id="ivaProd"></span></p>
     <p><b>IEPS:</b> <span id="iepsProd"></span></p>
     <p><b>Unidad SAT:</b> <span id="unidadProd"></span></p>
-    <p><b>Última actualización:</b> <span id="updateProd"></span></p>
+    <p><b>Actualización:</b> <span id="updateProd"></span></p>
 
     <h3>Líneas registradas</h3>
     <div id="lineasBox"></div>
 
     <h3>Agregar nueva línea</h3>
     <input id="nuevaLinea" placeholder="Nombre de marca / categoría">
-    <input id="infoExtra" placeholder="Información extra (opcional)">
-    <button onclick="agregarLinea()">Guardar Línea</button>
+    <input id="infoExtra" placeholder="Información extra opcional">
+    <button onclick="agregarLinea()">Guardar línea</button>
 
     <br><br>
     <button onclick="cerrarDetalle()">Cerrar</button>
 </div>
 
-<!-- Firebase -->
 <script type="module">
-
+/* Firebase */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, getDocs, addDoc }
 from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-/* CONFIG FIREBASE */
 const firebaseConfig = {
   apiKey: "AIzaSyCK5nb6u2CGRJ8AB1aPlRn54b97bdeAFeM",
   authDomain: "inventariopv-643f1.firebaseapp.com",
@@ -160,29 +153,24 @@ const db = getFirestore(app);
 let productos = [];
 let productoActual = null;
 
-/* CARGAR PRODUCTOS */
+/* Cargar productos 1 sola vez */
 async function cargarProductos() {
-    const ref = collection(db, "productos");
-    const snap = await getDocs(ref);
-
+    const snap = await getDocs(collection(db, "productos"));
     productos = [];
     snap.forEach(d => productos.push({ id: d.id, ...d.data() }));
-
-    mostrarLista(productos);
 }
+cargarProductos();
 
-/* BUSCADOR */
+/* Buscador */
 const inputBuscar = document.getElementById("buscar");
 const sugerencias = document.getElementById("sugerencias");
 
 inputBuscar.addEventListener("input", () => {
     const t = inputBuscar.value.toLowerCase().trim();
+    sugerencias.innerHTML = "";
+    sugerencias.style.display = "none";
 
-    if (!t) {
-        sugerencias.style.display = "none";
-        mostrarLista(productos);
-        return;
-    }
+    if (!t) return;
 
     const filtrado = productos.filter(p => {
         const cod = String(p.codigoBarra ?? "").toLowerCase();
@@ -190,47 +178,30 @@ inputBuscar.addEventListener("input", () => {
         return cod.includes(t) || desc.includes(t);
     });
 
-    mostrarLista(filtrado);
+    if (filtrado.length === 0) return;
 
-    if (filtrado.length === 0) {
-        sugerencias.style.display = "none";
-        return;
-    }
-
-    sugerencias.innerHTML = "";
     sugerencias.style.display = "block";
 
     filtrado.slice(0, 10).forEach(p => {
         const div = document.createElement("div");
-        div.innerHTML = `<b>${String(p.codigoBarra)}</b> - ${String(p.concepto)}`;
-        div.onclick = () => {
-            inputBuscar.value = `${p.codigoBarra} | ${p.concepto}`;
-            sugerencias.style.display = "none";
-            abrirProducto(p);
-        };
+        div.innerHTML = `<b>${p.codigoBarra}</b> - ${p.concepto}`;
+        div.onclick = () => seleccionarProducto(p);
         sugerencias.appendChild(div);
     });
 });
 
-/* MOSTRAR LISTA */
-function mostrarLista(arr) {
-    const cont = document.getElementById("listaProductos");
-    cont.innerHTML = "";
-    arr.forEach(p => {
-        const div = document.createElement("div");
-        div.className = "card";
-        div.innerHTML = `<b>${String(p.codigoBarra)}</b><br>${String(p.concepto)}`;
-        div.onclick = () => abrirProducto(p);
-        cont.appendChild(div);
-    });
+/* Seleccionar producto desde sugerencia */
+function seleccionarProducto(p) {
+    inputBuscar.value = `${p.codigoBarra} | ${p.concepto}`;
+    sugerencias.style.display = "none";
+    abrirProducto(p);
 }
 
-/* ABRIR DETALLE */
+/* Abrir detalle */
 function abrirProducto(p) {
     productoActual = p;
 
     document.getElementById("detalleProducto").style.display = "block";
-
     document.getElementById("tituloProd").innerText = p.concepto ?? "";
     document.getElementById("codigoProd").innerText = p.codigoBarra ?? "";
     document.getElementById("descProd").innerText = p.concepto ?? "";
@@ -238,12 +209,10 @@ function abrirProducto(p) {
     document.getElementById("deptoProd").innerText = p.departamento ?? "";
     document.getElementById("marcaProd").innerText = p.marca ?? "";
     document.getElementById("cajaProd").innerText = p.cantidadPorCaja ?? "";
-
     document.getElementById("pubProd").innerText = p.precioPublico ?? "";
     document.getElementById("mayProd").innerText = p.mayoreo ?? "";
     document.getElementById("medioProd").innerText = p.medioMayoreo ?? "";
     document.getElementById("costoProd").innerText = p.costoSinImpuesto ?? "";
-
     document.getElementById("ivaProd").innerText = p.ivaTasa ?? "";
     document.getElementById("iepsProd").innerText = p.iepsTasa ?? "";
     document.getElementById("unidadProd").innerText = p.unidadMedidaSat ?? "";
@@ -252,28 +221,26 @@ function abrirProducto(p) {
     cargarLineas(p.id);
 }
 
-/* CARGAR LÍNEAS */
+/* Cargar líneas */
 async function cargarLineas(id) {
-    const ref = collection(db, "productos", id, "lineas");
-    const snap = await getDocs(ref);
-
+    const snap = await getDocs(collection(db, "productos", id, "lineas"));
     const cont = document.getElementById("lineasBox");
     cont.innerHTML = "";
 
     snap.forEach(d => {
-        const data = d.data();
-        cont.innerHTML += `<div class="linea-box"><b>${data.nombre}</b><br>${data.extra ?? ""}</div>`;
+        const l = d.data();
+        cont.innerHTML += `<div class='linea-box'><b>${l.nombre}</b><br>${l.extra ?? ""}</div>`;
     });
 }
 
-/* AGREGAR LÍNEA */
+/* Agregar línea */
 async function agregarLinea() {
     if (!productoActual) return;
 
     const nombre = document.getElementById("nuevaLinea").value.trim();
     const extra = document.getElementById("infoExtra").value.trim();
 
-    if (!nombre) return alert("Ingresa el nombre de la nueva línea");
+    if (!nombre) return alert("Ingresa un nombre para la línea");
 
     await addDoc(collection(db, "productos", productoActual.id, "lineas"), {
         nombre,
@@ -282,16 +249,15 @@ async function agregarLinea() {
     });
 
     cargarLineas(productoActual.id);
+
     document.getElementById("nuevaLinea").value = "";
     document.getElementById("infoExtra").value = "";
 }
 
-/* CERRAR DETALLE */
+/* Cerrar detalle */
 function cerrarDetalle() {
     document.getElementById("detalleProducto").style.display = "none";
 }
-
-cargarProductos();
 
 </script>
 
