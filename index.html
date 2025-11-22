@@ -53,6 +53,12 @@
         border-radius: 6px;
         border: 1px solid #ccc;
     }
+    #buscadorBox {
+        position: relative;
+    }
+    #sugerencias div:hover {
+        background: #f0f0f0;
+    }
 </style>
 </head>
 
@@ -60,21 +66,37 @@
 
 <h2>Catálogo de Productos</h2>
 
-<input id="buscar" placeholder="Buscar por código o descripción...">
+<div id="buscadorBox">
+    <input id="buscar" placeholder="Buscar por código o descripción...">
+    <div id="sugerencias" 
+        style="background:white;border:1px solid #ccc;display:none;
+               position:absolute;width:100%;z-index:99;
+               max-height:250px;overflow-y:auto;border-radius:6px;
+               top:45px;">
+    </div>
+</div>
 
 <div id="listaProductos"></div>
 
 <div id="detalleProducto">
     <h3 id="tituloProd"></h3>
+
     <p><b>Código:</b> <span id="codigoProd"></span></p>
     <p><b>Descripción:</b> <span id="descProd"></span></p>
+    <p><b>Activo:</b> <span id="activoProd"></span></p>
+    <p><b>Mayoreo:</b> <span id="mayoreoProd"></span></p>
+    <p><b>Medio Mayoreo:</b> <span id="medioProd"></span></p>
+    <p><b>Menudeo:</b> <span id="menudeoProd"></span></p>
+    <p><b>Costo sin impuesto:</b> <span id="costoProd"></span></p>
+    <p><b>Clave SAT:</b> <span id="satProd"></span></p>
+    <p><b>Marca:</b> <span id="marcaProd"></span></p>
 
     <h3>Líneas registradas</h3>
     <div id="lineasBox"></div>
 
     <h3>Agregar nueva línea</h3>
-    <input id="nuevaLinea" placeholder="Nombre de la línea">
-    <input id="infoExtra" placeholder="Información extra">
+    <input id="nuevaLinea" placeholder="Nombre de la marca / categoría">
+    <input id="infoExtra" placeholder="Información extra (opcional)">
     <button onclick="agregarLinea()">Guardar Línea</button>
 
     <br><br>
@@ -93,7 +115,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 /* =======================================================
-   CONFIGURA TUS CREDENCIALES AQUI
+   CONFIGURA TUS CREDENCIALES
 ========================================================= */
 const firebaseConfig = {
   apiKey: "AIzaSyCK5nb6u2CGRJ8AB1aPlRn54b97bdeAFeM",
@@ -111,7 +133,7 @@ let productos = [];
 let productoActual = null;
 
 /* =======================================================
-   CARGAR TODOS LOS PRODUCTOS
+   CARGAR PRODUCTOS
 ========================================================= */
 async function cargarProductos() {
     const ref = collection(db, "productos");
@@ -124,6 +146,54 @@ async function cargarProductos() {
 
     mostrarLista(productos);
 }
+
+const inputBuscar = document.getElementById("buscar");
+const sugerencias = document.getElementById("sugerencias");
+
+/* =======================================================
+   BUSCADOR CON SUGERENCIAS
+========================================================= */
+inputBuscar.addEventListener("input", () => {
+    const t = inputBuscar.value.toLowerCase().trim();
+
+    if (!t) {
+        sugerencias.style.display = "none";
+        sugerencias.innerHTML = "";
+        mostrarLista(productos);
+        return;
+    }
+
+    const filtrado = productos.filter(p =>
+        (p.codigoBarra ?? "").toLowerCase().includes(t) ||
+        (p.concepto ?? "").toLowerCase().includes(t)
+    );
+
+    mostrarLista(filtrado);
+
+    if (filtrado.length === 0) {
+        sugerencias.style.display = "none";
+        return;
+    }
+
+    sugerencias.innerHTML = "";
+    sugerencias.style.display = "block";
+
+    filtrado.slice(0, 10).forEach(p => {
+        const div = document.createElement("div");
+        div.style.padding = "10px";
+        div.style.cursor = "pointer";
+        div.style.borderBottom = "1px solid #eee";
+        div.innerHTML = `<b>${p.codigoBarra}</b> - ${p.concepto}`;
+
+        div.onclick = () => {
+            inputBuscar.value = `${p.codigoBarra} | ${p.concepto}`;
+            sugerencias.style.display = "none";
+            abrirProducto(p);
+        };
+
+        sugerencias.appendChild(div);
+    });
+});
 
 /* =======================================================
    MOSTRAR LISTA
@@ -145,33 +215,29 @@ function mostrarLista(arr) {
 }
 
 /* =======================================================
-   BUSCADOR
+   ABRIR DETALLE
 ========================================================= */
-document.getElementById("buscar").addEventListener("input", () => {
-    const t = document.getElementById("buscar").value.toLowerCase();
-    const filtrado = productos.filter(p =>
-        p.codigoBarra.toLowerCase().includes(t) ||
-        p.concepto.toLowerCase().includes(t)
-    );
-    mostrarLista(filtrado);
-});
-
-/* =======================================================
-   ABRIR PRODUCTO
-========================================================= */
-async function abrirProducto(p) {
+function abrirProducto(p) {
     productoActual = p;
 
     document.getElementById("detalleProducto").style.display = "block";
+
     document.getElementById("tituloProd").innerText = p.concepto;
     document.getElementById("codigoProd").innerText = p.codigoBarra;
     document.getElementById("descProd").innerText = p.concepto;
+    document.getElementById("activoProd").innerText = p.activo;
+    document.getElementById("mayoreoProd").innerText = p.mayoreo;
+    document.getElementById("medioProd").innerText = p.medioMayoreo;
+    document.getElementById("menudeoProd").innerText = p.menudeo;
+    document.getElementById("costoProd").innerText = p.costoSinImpuesto;
+    document.getElementById("satProd").innerText = p.claveSat;
+    document.getElementById("marcaProd").innerText = p.marca;
 
     cargarLineas(p.id);
 }
 
 /* =======================================================
-   CARGAR LÍNEAS (subcolección)
+   CARGAR LÍNEAS
 ========================================================= */
 async function cargarLineas(id) {
     const ref = collection(db, "productos", id, "lineas");
@@ -184,16 +250,13 @@ async function cargarLineas(id) {
         const data = d.data();
         const div = document.createElement("div");
         div.className = "linea-box";
-        div.innerHTML = `
-            <b>${data.nombre}</b><br>
-            ${data.extra ?? ""}
-        `;
+        div.innerHTML = `<b>${data.nombre}</b><br>${data.extra ?? ""}`;
         cont.appendChild(div);
     });
 }
 
 /* =======================================================
-   AGREGAR NUEVA LÍNEA
+   AGREGAR LÍNEA
 ========================================================= */
 async function agregarLinea() {
     if (!productoActual) return;
@@ -202,7 +265,7 @@ async function agregarLinea() {
     const extra = document.getElementById("infoExtra").value.trim();
 
     if (!nombre) {
-        alert("Ingresa un nombre de línea");
+        alert("Ingresa el nombre de la nueva línea");
         return;
     }
 
